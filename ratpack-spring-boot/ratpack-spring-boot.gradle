@@ -14,9 +14,14 @@
  * limitations under the License.
  */
 
-description = "Embed Spring Boot"
+description = "Integration with Spring Boot for Ratpack applications - http://projects.spring.io/spring-boot/"
 
 apply from: "$rootDir/gradle/javaModule.gradle"
+
+ext.apiLinks = [
+  "http://docs.spring.io/spring-boot/docs/1.1.x/api/",
+  "http://docs.spring.io/spring-framework/docs/4.0.x/javadoc-api/"
+]
 
 dependencies {
   compile project(":ratpack-core")
