@@ -37,6 +37,7 @@ import ratpack.registry.Registry;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
@@ -51,7 +52,7 @@ public class SpringBackedRegistry implements Registry {
     this.applicationContext = applicationContext;
   }
 
-  private final LoadingCache<TypeToken<?>, List<ObjectFactory<?>>> ObjectFactoryCache = CacheBuilder.newBuilder().build(new CacheLoader<TypeToken<?>, List<ObjectFactory<?>>>() {
+  private final LoadingCache<TypeToken<?>, List<ObjectFactory<?>>> objectFactoryCache = CacheBuilder.newBuilder().build(new CacheLoader<TypeToken<?>, List<ObjectFactory<?>>>() {
     @Override
     public List<ObjectFactory<?>> load(@SuppressWarnings("NullableProblems") TypeToken<?> key) throws Exception {
       @SuppressWarnings({"unchecked", "RedundantCast"})
@@ -82,8 +83,8 @@ public class SpringBackedRegistry implements Registry {
       } else {
         ImmutableList.Builder<ObjectFactory<?>> builder = ImmutableList.builder();
         Predicate<? super T> predicate = key.predicate;
-        for (ObjectFactory<?> ObjectFactory : objectFactories) {
-          @SuppressWarnings("unchecked") ObjectFactory<T> castObjectFactory = (ObjectFactory<T>) ObjectFactory;
+        for (ObjectFactory<?> objectFactory : objectFactories) {
+          @SuppressWarnings("unchecked") ObjectFactory<T> castObjectFactory = (ObjectFactory<T>) objectFactory;
           if (predicate.apply(castObjectFactory.getObject())) {
             builder.add(castObjectFactory);
           }
@@ -126,7 +127,7 @@ public class SpringBackedRegistry implements Registry {
 
   private <T> List<ObjectFactory<?>> getObjectFactories(TypeToken<T> type) {
     try {
-      return ObjectFactoryCache.get(type);
+      return objectFactoryCache.get(type);
     } catch (ExecutionException | UncheckedExecutionException e) {
       throw uncheck(toException(e.getCause()));
     }
@@ -143,14 +144,18 @@ public class SpringBackedRegistry implements Registry {
     if (objectFactories.isEmpty()) {
       return Collections.emptyList();
     } else {
-      return Iterables.transform(objectFactories, new Function<ObjectFactory<?>, O>() {
-        @Override
-        public O apply(ObjectFactory<?> input) {
-          @SuppressWarnings("unchecked") O cast = (O) input.getObject();
-          return cast;
-        }
-      });
+      return transformToInstances(objectFactories);
     }
+  }
+
+  private <O> Iterable<O> transformToInstances(Iterable<ObjectFactory<?>> objectFactories) {
+    return Iterables.transform(objectFactories, new Function<ObjectFactory<?>, O>() {
+      @Override
+      public O apply(ObjectFactory<?> input) {
+        @SuppressWarnings("unchecked") O cast = (O) input.getObject();
+        return cast;
+      }
+    });
   }
 
   private <T> List<ObjectFactory<?>> getAll(TypeToken<T> type, Predicate<? super T> predicate) {
@@ -164,35 +169,18 @@ public class SpringBackedRegistry implements Registry {
   @Nullable
   @Override
   public <T> T first(TypeToken<T> type, Predicate<? super T> predicate) {
-    if (PredicateCacheability.isCacheable(predicate)) {
-      List<ObjectFactory<?>> all = getAll(type, predicate);
-      if (all.isEmpty()) {
-        return null;
-      } else {
-        @SuppressWarnings("unchecked") T cast = (T) all.get(0).getObject();
-        return cast;
-      }
+    Iterator<? extends T> matching = all(type, predicate).iterator();
+    if (!matching.hasNext()) {
+      return null;
     } else {
-      T object = maybeGet(type);
-      if (object != null && predicate.apply(object)) {
-        return object;
-      } else {
-        return null;
-      }
+      return matching.next();
     }
   }
 
   @Override
   public <T> Iterable<? extends T> all(TypeToken<T> type, Predicate<? super T> predicate) {
     if (PredicateCacheability.isCacheable(predicate)) {
-      List<ObjectFactory<?>> objectFactories = getAll(type, predicate);
-      return Iterables.transform(objectFactories, new Function<ObjectFactory<?>, T>() {
-        @Override
-        @SuppressWarnings("unchecked")
-        public T apply(ObjectFactory<?> input) {
-          return (T)input.getObject();
-        }
-      });
+      return transformToInstances(getAll(type, predicate));
     } else {
       return Iterables.filter(getAll(type), predicate);
     }
