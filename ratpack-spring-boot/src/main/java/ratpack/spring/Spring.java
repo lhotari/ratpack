@@ -16,21 +16,52 @@
 
 package ratpack.spring;
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.context.ApplicationContext;
-import org.springframework.util.ClassUtils;
-import ratpack.launch.LaunchConfig;
+import org.springframework.beans.factory.ListableBeanFactory;
+import org.springframework.boot.builder.SpringApplicationBuilder;
 import ratpack.registry.Registry;
 import ratpack.spring.internal.SpringBackedRegistry;
 
+/**
+ * Static utility methods for using Spring in Ratpack applications.
+ *
+ */
 public abstract class Spring {
-  public static Registry registry(ApplicationContext applicationContext) {
-    return new SpringBackedRegistry(applicationContext);
+  /**
+   * Adapts a Spring ListableBeanFactory instance to Ratpack's Registry interface
+   *
+   * Spring ListableBeanFactory API doesn't current support looking up beans with generic parameterized types.
+   * The adapted Registry instance doesn't support this because of this limitation. There is a
+   * <a href="https://jira.spring.io/browse/SPR-12147">feature request</a> to add the generics functionality to
+   * the Spring ListableBeanFactory API.
+   *
+   * @param beanFactory
+   * @return
+   */
+  public static Registry registry(ListableBeanFactory beanFactory) {
+    return new SpringBackedRegistry(beanFactory);
   }
 
-  public static Registry run(Class<?> springApplicationClass) {
-    SpringApplication springApplication =  new SpringApplication(springApplicationClass);
-    springApplication.setMainApplicationClass(springApplicationClass);
-    return registry(springApplication.run(new String[0]));
+  /**
+   * Runs a Spring Boot application
+   *
+   * @param springApplicationClass Spring Boot Application class
+   * @param args arguments to pass to application
+   * @return Ratpack Registry instance that looks up dependencies in the Spring Boot Application's context
+   */
+  public static Registry run(Class<?> springApplicationClass, String... args) {
+    SpringApplicationBuilder springApplicationBuilder = new SpringApplicationBuilder(springApplicationClass);
+    springApplicationBuilder.main(springApplicationClass);
+    return run(springApplicationBuilder, args);
+  }
+
+  /**
+   * Runs a Spring Boot application
+   *
+   * @param springApplicationBuilder Spring Boot SpringApplicationBuilder instance
+   * @param args arguments to pass to application
+   * @return Ratpack Registry instance that looks up dependencies in the Spring Boot Application's context
+   */
+  public static Registry run(SpringApplicationBuilder springApplicationBuilder, String... args) {
+    return registry(springApplicationBuilder.run(args));
   }
 }

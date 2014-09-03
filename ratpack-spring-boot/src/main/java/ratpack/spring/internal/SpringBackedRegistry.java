@@ -27,8 +27,8 @@ import com.google.common.reflect.TypeToken;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactoryUtils;
+import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.beans.factory.ObjectFactory;
-import org.springframework.context.ApplicationContext;
 import ratpack.api.Nullable;
 import ratpack.func.Action;
 import ratpack.registry.NotInRegistryException;
@@ -46,10 +46,10 @@ import static ratpack.util.ExceptionUtils.uncheck;
 
 public class SpringBackedRegistry implements Registry {
 
-  private final ApplicationContext applicationContext;
+  private final ListableBeanFactory beanFactory;
 
-  public SpringBackedRegistry(ApplicationContext applicationContext) {
-    this.applicationContext = applicationContext;
+  public SpringBackedRegistry(ListableBeanFactory beanFactory) {
+    this.beanFactory = beanFactory;
   }
 
   private final LoadingCache<TypeToken<?>, List<ObjectFactory<?>>> objectFactoryCache = CacheBuilder.newBuilder().build(new CacheLoader<TypeToken<?>, List<ObjectFactory<?>>>() {
@@ -57,12 +57,12 @@ public class SpringBackedRegistry implements Registry {
     public List<ObjectFactory<?>> load(@SuppressWarnings("NullableProblems") TypeToken<?> key) throws Exception {
       @SuppressWarnings({"unchecked", "RedundantCast"})
       List<ObjectFactory<?>> objectFactories = new ArrayList<ObjectFactory<?>>();
-      for (final String beanName : BeanFactoryUtils.beanNamesForTypeIncludingAncestors(applicationContext,
+      for (final String beanName : BeanFactoryUtils.beanNamesForTypeIncludingAncestors(beanFactory,
         key.getRawType())) {
         objectFactories.add(new ObjectFactory<Object>() {
           @Override
           public Object getObject() throws BeansException {
-            return applicationContext.getBean(beanName);
+            return beanFactory.getBean(beanName);
           }
         });
       }
@@ -221,12 +221,12 @@ public class SpringBackedRegistry implements Registry {
 
     SpringBackedRegistry that = (SpringBackedRegistry) o;
 
-    return applicationContext.equals(that.applicationContext);
+    return beanFactory.equals(that.beanFactory);
   }
 
   @Override
   public int hashCode() {
-    return applicationContext.hashCode();
+    return beanFactory.hashCode();
   }
 
 }
