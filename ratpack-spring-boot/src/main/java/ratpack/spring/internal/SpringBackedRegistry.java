@@ -46,7 +46,7 @@ import static ratpack.util.ExceptionUtils.uncheck;
 
 public class SpringBackedRegistry implements Registry {
 
-  final ApplicationContext applicationContext;
+  private final ApplicationContext applicationContext;
 
   public SpringBackedRegistry(ApplicationContext applicationContext) {
     this.applicationContext = applicationContext;
